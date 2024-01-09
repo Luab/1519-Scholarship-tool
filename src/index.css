@@ -1,0 +1,121 @@
+body {
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+[split] {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+[split] > [left] {
+  display: flex;
+  flex-direction: column;
+  width: 12em;
+  flex-shrink: 0;
+  border-right: 1px solid black;
+}
+[split] > [left] > [filter] {
+  display: flex;
+}
+[split] > [left] > [filter] > div {
+  flex-grow: 1;
+}
+[filter] > div[rate="-1"] {
+  background-color: #ff8080;
+}
+[filter] > div[rate="0"] {
+  background-color: #ffff60;
+}
+[filter] > div[rate="1"] {
+  background-color: #80ff80;
+}
+[split] > [left] > [list] {
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid black;
+  padding-bottom: 4em;
+}
+[split] > [left] > [list] > a {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+}
+[split] > [left] > [list] > a::before {
+  content: " ";
+  white-space: pre;
+  font-family: monospace;
+}
+[split] > [left] > [list] > a[rate="-1"]::before {
+  background-color: #ff8080;
+}
+[split] > [left] > [list] > a[rate="0"]::before {
+  background-color: #ffff60;
+}
+[split] > [left] > [list] > a[rate="1"]::before {
+  background-color: #80ff80;
+}
+[split] > [left] > [list] > a[active] {
+  font-weight: bold;
+}
+[split] > [left] > [list] > a[active]::before {
+  content: "▸";
+}
+[split] > [left2] {
+  width: 20em;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid black;
+}
+[split] > [left2] > [filter] {
+  display: flex;
+}
+[split] > [left2] > [filter] > div[rate] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+}
+[split] > [left2] > [filter] > div[rate] > input {
+  margin: 0;
+}
+[split] > [left2] textarea {
+  resize: vertical;
+  font-family: inherit;
+  font-size: inherit;
+}
+[split] > [left2] > [doc] {
+  margin-top: 0.5em;
+  display: flex;
+  flex-direction: column;
+}
+[split] > [left2] > [doc] > div > span {
+  cursor: pointer;
+  word-break: break-all;
+}
+[split] > [left2] > [doc] > div > span[active] {
+  font-weight: bold;
+}
+[split] > [right] {
+  flex-grow: 1;
+  display: flex;
+  overflow: scroll;
+}
+[split] > [right] > iframe {
+  flex-grow: 1;
+  border: none;
+}
+[split] > [right] > [excel] {
+  display: flex;
+  flex-direction: column;
+}
+[split] > [right] > [excel] table {
+  border-collapse: collapse;
+  margin: 0.5em;
+}
+[split] > [right] > [excel] :is(th,td) {
+  border-collapse: collapse;
+  border: 1px solid #a0a0a0;
+}
