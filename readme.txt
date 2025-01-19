@@ -6,7 +6,7 @@ download "deno"
 unzip files provided inside directory 
 
 start server
-  "deno run -A src/serve.ts"
+  "deno run -A --unstable-kv src/serve.ts"
 open browser
   http://localhost:8080
 browser with pdf viewer required (chrome, firefox)
