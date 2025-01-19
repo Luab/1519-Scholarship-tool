@@ -2,6 +2,7 @@ import * as React from "https://esm.sh/preact@10.19.3";
 import { useEffect, useState } from "https://esm.sh/preact@10.19.3/hooks";
 import * as Xls from "https://esm.sh/xlsx@0.18.5";
 import { DbUserDoc, DbUserName, ResInfo } from "./shared.ts";
+import { RankingPage } from "./RankingPage.tsx";
 
 function useHash() {
   const [hash, setHash] = useState<string>(location.hash);
@@ -12,11 +13,12 @@ function useHash() {
   }, [setHash]);
   return hash;
 }
-
+function allDocumentsSeen(docs: Record<string, DbUserDoc>): boolean {
+    return Object.values(docs).every((doc) => doc.seen);
+}
 function adjustTextarea(e: HTMLTextAreaElement) {
   const border = 1;
   e.style.height = "0px";
-  // https://stackoverflow.com/a/48460773
   e.style.height = `${e.scrollHeight + 2 * border}px`;
 }
 
@@ -62,170 +64,223 @@ self.addEventListener(
     e.preventDefault();
   },
 );
-
 function App() {
-  const hash = useHash();
-  let hash_user_id: string = null!;
-  if (!/^#?$/.test(hash)) {
-    const m = hash.match(/^#uploads_(\d+)$/)!;
-    if (!m) location.hash = "";
-    if (m) hash_user_id = m[1];
-  }
+    const hash = useHash();
+    let user_id: string = null!;
+    if (!/^#?$/.test(hash)) {
+        const decodedHash = decodeURIComponent(hash);
+        const m = decodedHash.match(/^#uploads_([\wа-яА-Я_]+)$/)!;
+        if (!m) location.hash = "";
+        if (m) user_id = m[1];
+    }
 
-  const [info, setInfo] = useState<ResInfo>(null!);
-  useEffect(() => {
-    fetch("/info.json").then((r) => r.json()).then(setInfo);
-  }, [setInfo]);
-  if (!info) return <div>loading...</div>;
-  const hash_user = info[hash_user_id];
-  if (!hash_user) location.hash = "";
-  const list = Array.from(Object.keys(info)).sort()
-    .map((x) => [x, Object.keys(info[x].docs).sort()] as [string, string[]]);
-  const hash_user_docs = list.find((x) => x[0] === hash_user_id)?.[1]!;
+    const [info, setInfo] = useState<ResInfo>(null!);
+    const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
 
-  const filter = useState([true, true, true]);
+    useEffect(() => {
+        fetch("/info.json")
+            .then((r) => r.json())
+            .then((data) => {
+                for (const user_id in data) {
+                    const user = data[user_id];
+                    user.docs = {
+                        cv: { seen: user.docs?.cv?.seen || false, comment: user.docs?.cv?.comment || "", path: user.cv || null },
+                        motivationalLetter: { seen: user.docs?.motivationalLetter?.seen || false, comment: user.docs?.motivationalLetter?.comment || "", path: user.motivationalLetter || null },
+                        recommendationLetter: { seen: user.docs?.recommendationLetter?.seen || false, comment: user.docs?.recommendationLetter?.comment || "", path: user.recommendationLetter || null },
+                        transcript: { seen: user.docs?.transcript?.seen || false, comment: user.docs?.transcript?.comment || "", path: user.transcript || null },
+                        almostAStudent: { seen: user.docs?.almostAStudent?.seen || false, comment: user.docs?.almostAStudent?.comment || "", path: user.almostAStudent || null },
+                    };
+                }
+                setInfo(data);
+            });
+    }, [setInfo]);
+    if (!info) return <div>loading...</div>;
 
-  const active_doc = useState<[string, string]>(null!);
-  if (active_doc[0]?.[0] !== hash_user_id) active_doc[1](null!);
-  const active_doc_url = active_doc[0] &&
-    `/uploads_${active_doc[0][0]}/${active_doc[0][1]}`;
+    // Handle routing to the ranking page
+    if (location.pathname === "/ranking") {
+        return <RankingPage info={info} />;
+    }
 
-  function updateUser(user: DbUserName) {
-    setInfo({ ...info, [hash_user_id]: user });
-    const { rate, comment } = user;
-    fetch("/user", {
-      method: "PUT",
-      body: JSON.stringify([hash_user_id, { rate, comment }]),
-    });
-  }
-  function updateUserDoc(doc_id: string, doc: DbUserDoc) {
-    setInfo({
-      ...info,
-      [hash_user_id]: {
-        ...hash_user,
-        docs: { ...hash_user.docs, [doc_id]: doc },
-      },
-    });
-    const { seen, comment } = doc;
-    fetch("/user/doc", {
-      method: "PUT",
-      body: JSON.stringify([hash_user_id, doc_id, { seen, comment }]),
-    });
-  }
+    const selected_user = info[user_id];
+    if (!selected_user) {
+        console.log("No user found for user_id:", user_id);
+        location.hash = "";
+    }
 
-  return (
-    <div split>
-      <div left>
-        <div filter>
-          {[-1, 0, 1].map((rate, i) => (
-            <div rate={rate}>
-              <input
-                type="checkbox"
-                checked={filter[0][i]}
-                onChange={(e) =>
-                  filter[1](filter[0].with(i, e.currentTarget.checked))}
-              />
-              {"x?v"[1 + rate]}
-            </div>
-          ))}
-        </div>
-        <div list>
-          {list.filter((x) =>
-            x[0] === hash_user_id || filter[0][1 + info[x[0]].rate]
-          ).map((x) => (
+    const user_docs = selected_user?.docs ? Object.keys(selected_user.docs) : [];
+
+    const filter = useState([true, true, true]);
+
+    function updateUser(user: DbUserName) {
+        setInfo({ ...info, [user_id]: user });
+        const { rate, comment } = user;
+        fetch("/user", {
+            method: "PUT",
+            body: JSON.stringify([user_id, { rate, comment }]),
+        });
+    }
+
+    function updateUserDoc(doc_id: string, doc: DbUserDoc) {
+        setInfo({
+            ...info,
+            [user_id]: {
+                ...selected_user,
+                docs: { ...selected_user.docs, [doc_id]: doc },
+            },
+        });
+        const { seen, comment } = doc;
+        fetch("/user/doc", {
+            method: "PUT",
+            body: JSON.stringify([user_id, doc_id, { seen, comment }]),
+        });
+    }
+    return (
+        <div split>
+            <div left>
+                <div filter>
+                    {[-1, 0, 1].map((rate, i) => (
+                        <div rate={rate}>
+                            <input
+                                type="checkbox"
+                                checked={filter[0][i]}
+                                onChange={(e) =>
+                                    filter[1](filter[0].with(i, e.currentTarget.checked))}
+                            />
+                            {"x?v"[1 + rate]}
+                        </div>
+                    ))}
+                </div>
+                <div list>
+    {Object.keys(info).filter((id) =>
+        id === user_id || filter[0][1 + info[id].rate]
+    ).map((id, index) => {
+        const student = info[id];
+        const allSeen = allDocumentsSeen(student.docs);
+        return (
             <a
-              href={`#uploads_${x[0]}`}
-              active={x[0] === hash_user_id}
-              rate={info[x[0]].rate}
+                href={`#uploads_${encodeURIComponent(id)}`}
+                active={id === user_id}
+                rate={student.rate} // Add rate attribute
+                onClick={(e) => {
+                    e.preventDefault();
+                    console.log("Student clicked:", id);
+                    location.hash = `uploads_${encodeURIComponent(id)}`;
+                }}
+                style={{
+                    textDecoration: allSeen ? "line-through" : "none",
+                    opacity: allSeen ? 0.7 : 1,
+                }}
             >
-              {list.findIndex((y) => y[0] === x[0])}{" "}
-              {info[x[0]].name ?? "??? ???"}
+                {`${index + 1}. ${student.name ?? "??? ???"}`}
             </a>
-          ))}
+        );
+    })}
+</div>                    {/* Rank Students button at the bottom */}
+    <button
+        onClick={() => (window.location.pathname = "/ranking")}
+        style={{
+            marginTop: "16px",
+            padding: "8px 16px",
+            backgroundColor: "#2ecc71",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            width: "100%",
+        }}
+    >
+        Rank Students
+    </button>
+            </div>
+            <div left2>
+                {selected_user
+                    ? (
+                        <>
+                            <div filter>
+                                {[-1, 0, 1].map((rate, i) => (
+                                    <div rate={rate}>
+                                        <input
+                                            type="radio"
+                                            checked={rate === selected_user.rate}
+                                            onChange={(e) => updateUser({ ...selected_user, rate })}
+                                        />
+                                    </div>
+                                ))}
+                                {selected_user.name ?? "??? ???"}
+                            </div>
+                            <textarea
+                                value={selected_user.comment}
+                                data-value={selected_user.comment}
+                                onInput={(e) => adjustTextarea(e.currentTarget)}
+                                onChange={(e) =>
+                                    updateUser({ ...selected_user, comment: e.currentTarget.value })}
+                                ref={(e) => e && adjustTextarea(e)}
+                                placeholder="User comment"
+                            />
+                            {user_docs.map((doc_id) => {
+                                const doc = selected_user.docs[doc_id];
+                                return (
+                                    <div doc>
+                                        <div>
+                                            <input
+                                                type="checkbox"
+                                                checked={doc.seen}
+                                                onChange={(e) =>
+                                                    updateUserDoc(doc_id, {
+                                                        ...doc,
+                                                        seen: e.currentTarget.checked,
+                                                    })}
+                                            />
+                                            {doc.path
+                                                ? <a
+                                                    href={`/${doc.path}`}
+                                                    target="_blank"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setSelectedDoc(doc.path);
+                                                    }}
+                                                >
+                                                    {doc_id}
+                                                </a>
+                                                : <span>{doc_id} (Not provided)</span>}
+                                        </div>
+                                        {doc.path && (
+                                            <textarea
+                                                value={doc.comment}
+                                                data-value={doc.comment}
+                                                onInput={(e) => adjustTextarea(e.currentTarget)}
+                                                onChange={(e) =>
+                                                    updateUserDoc(doc_id, {
+                                                        ...doc,
+                                                        comment: e.currentTarget.value,
+                                                    })}
+                                                ref={(e) => e && adjustTextarea(e)}
+                                                placeholder="Document comment"
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </>
+                    )
+                    : null}
+            </div>
+            <div right>
+                {selectedDoc ? (
+                    <>
+                        <div className="preview-header">
+                            <span>Preview: {selectedDoc.split("/").pop()}</span>
+                            <button onClick={() => setSelectedDoc(null)}>Close Preview</button>
+                        </div>
+                        <iframe
+                            src={`/${selectedDoc}`}
+                            style={{ width: "100%", height: "100%", border: "none" }}
+                        />
+                    </>
+                ) : (
+                    <div>No document selected for preview.</div>
+                )}
+            </div>
         </div>
-      </div>
-      <div left2>
-        {hash_user
-          ? (
-            <>
-              <div filter>
-                {[-1, 0, 1].map((rate, i) => (
-                  <div rate={rate}>
-                    <input
-                      type="radio"
-                      checked={rate === hash_user.rate}
-                      onChange={(e) => updateUser({ ...hash_user, rate })}
-                    />
-                  </div>
-                ))}
-                {hash_user.name ?? "??? ???"}
-              </div>
-              <textarea
-                value={hash_user.comment}
-                data-value={hash_user.comment}
-                onInput={(e) => adjustTextarea(e.currentTarget)}
-                onChange={(e) =>
-                  updateUser({ ...hash_user, comment: e.currentTarget.value })}
-                ref={(e) => e && adjustTextarea(e)}
-                placeholder="User comment"
-              />
-              {hash_user_docs.map((doc_id) => {
-                const doc = hash_user.docs[doc_id];
-                return (
-                  <div doc>
-                    <div>
-                      <input
-                        type="checkbox"
-                        checked={doc.seen}
-                        onChange={(e) =>
-                          updateUserDoc(doc_id, {
-                            ...doc,
-                            seen: e.currentTarget.checked,
-                          })}
-                      />
-                      <a
-                        href={`/uploads_${hash_user_id}/${doc_id}`}
-                        target="_blank"
-                      >
-                        link
-                      </a>{" "}
-                      <span
-                        onClick={() => active_doc[1]([hash_user_id, doc_id])}
-                        active={doc_id === active_doc[0]?.[1]}
-                      >
-                        {doc_id}
-                      </span>
-                    </div>
-                    <textarea
-                      value={doc.comment}
-                      data-value={doc.comment}
-                      onInput={(e) => adjustTextarea(e.currentTarget)}
-                      onChange={(e) =>
-                        updateUserDoc(doc_id, {
-                          ...doc,
-                          comment: e.currentTarget.value,
-                        })}
-                      ref={(e) => e && adjustTextarea(e)}
-                      placeholder="Document comment"
-                    />
-                  </div>
-                );
-              })}
-            </>
-          )
-          : null}
-      </div>
-      <div right>
-        {active_doc[0]
-          ? active_doc_url.endsWith(".pdf")
-            ? <iframe src={active_doc_url} />
-            : /\.xlsx?$/.test(active_doc_url)
-            ? <Excel src={active_doc_url} />
-            : <pre>TODO: {active_doc_url}</pre>
-          : null}
-      </div>
-    </div>
-  );
-}
-
-React.render(<App />, document.querySelector("[preact]")!);
+    );
+}React.render(<App />, document.querySelector("[preact]")!);

@@ -3,10 +3,7 @@ download "deno"
   download single exe from https://github.com/denoland/deno/releases 
   or follow guide https://docs.deno.com/runtime/manual/getting_started/installation
 
-copy/link zip files
-  "ln ~/Downloads/1519_{en,ru}_applications.zip ."
-  or "ln -snf ~/Downloads/1519_{en,ru}_applications.zip ." (absolute path required)
-  or "cp ~/Downloads/1519_{en,ru}_applications.zip ."
+unzip files provided inside directory 
 
 start server
   "deno run -A src/serve.ts"
