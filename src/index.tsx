@@ -13,9 +13,11 @@ function useHash() {
   }, [setHash]);
   return hash;
 }
+
 function allDocumentsSeen(docs: Record<string, DbUserDoc>): boolean {
     return Object.values(docs).every((doc) => doc.seen);
 }
+
 function adjustTextarea(e: HTMLTextAreaElement) {
   const border = 1;
   e.style.height = "0px";
@@ -84,16 +86,17 @@ function App() {
                 for (const user_id in data) {
                     const user = data[user_id];
                     user.docs = {
-                        cv: { seen: user.docs?.cv?.seen || false, comment: user.docs?.cv?.comment || "", path: user.cv || null },
-                        motivationalLetter: { seen: user.docs?.motivationalLetter?.seen || false, comment: user.docs?.motivationalLetter?.comment || "", path: user.motivationalLetter || null },
-                        recommendationLetter: { seen: user.docs?.recommendationLetter?.seen || false, comment: user.docs?.recommendationLetter?.comment || "", path: user.recommendationLetter || null },
-                        transcript: { seen: user.docs?.transcript?.seen || false, comment: user.docs?.transcript?.comment || "", path: user.transcript || null },
-                        almostAStudent: { seen: user.docs?.almostAStudent?.seen || false, comment: user.docs?.almostAStudent?.comment || "", path: user.almostAStudent || null },
+                        cv: { seen: user.docs?.cv?.seen || false, comment: user.docs?.cv?.comment || "", paths: user.cv ? user.cv.split(", ") : [] },
+                        motivationalLetter: { seen: user.docs?.motivationalLetter?.seen || false, comment: user.docs?.motivationalLetter?.comment || "", paths: user.motivationalLetter ? user.motivationalLetter.split(", ") : [] },
+                        recommendationLetter: { seen: user.docs?.recommendationLetter?.seen || false, comment: user.docs?.recommendationLetter?.comment || "", paths: user.recommendationLetter ? user.recommendationLetter.split(", ") : [] },
+                        transcript: { seen: user.docs?.transcript?.seen || false, comment: user.docs?.transcript?.comment || "", paths: user.transcript ? user.transcript.split(", ") : [] },
+                        almostAStudent: { seen: user.docs?.almostAStudent?.seen || false, comment: user.docs?.almostAStudent?.comment || "", paths: user.almostAStudent ? user.almostAStudent.split(", ") : [] },
                     };
                 }
                 setInfo(data);
             });
     }, [setInfo]);
+
     if (!info) return <div>loading...</div>;
 
     // Handle routing to the ranking page
@@ -134,6 +137,7 @@ function App() {
             body: JSON.stringify([user_id, doc_id, { seen, comment }]),
         });
     }
+
     return (
         <div split>
             <div left>
@@ -151,46 +155,46 @@ function App() {
                     ))}
                 </div>
                 <div list>
-    {Object.keys(info).filter((id) =>
-        id === user_id || filter[0][1 + info[id].rate]
-    ).map((id, index) => {
-        const student = info[id];
-        const allSeen = allDocumentsSeen(student.docs);
-        return (
-            <a
-                href={`#uploads_${encodeURIComponent(id)}`}
-                active={id === user_id}
-                rate={student.rate} // Add rate attribute
-                onClick={(e) => {
-                    e.preventDefault();
-                    console.log("Student clicked:", id);
-                    location.hash = `uploads_${encodeURIComponent(id)}`;
-                }}
-                style={{
-                    textDecoration: allSeen ? "line-through" : "none",
-                    opacity: allSeen ? 0.7 : 1,
-                }}
-            >
-                {`${index + 1}. ${student.name ?? "??? ???"}`}
-            </a>
-        );
-    })}
-</div>                    {/* Rank Students button at the bottom */}
-    <button
-        onClick={() => (window.location.pathname = "/ranking")}
-        style={{
-            marginTop: "16px",
-            padding: "8px 16px",
-            backgroundColor: "#2ecc71",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            width: "100%",
-        }}
-    >
-        Rank Students
-    </button>
+                    {Object.keys(info).filter((id) =>
+                        id === user_id || filter[0][1 + info[id].rate]
+                    ).map((id, index) => {
+                        const student = info[id];
+                        const allSeen = allDocumentsSeen(student.docs);
+                        return (
+                            <a
+                                href={`#uploads_${encodeURIComponent(id)}`}
+                                active={id === user_id}
+                                rate={student.rate}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    console.log("Student clicked:", id);
+                                    location.hash = `uploads_${encodeURIComponent(id)}`;
+                                }}
+                                style={{
+                                    textDecoration: allSeen ? "line-through" : "none",
+                                    opacity: allSeen ? 0.7 : 1,
+                                }}
+                            >
+                                {`${index + 1}. ${student.name ?? "??? ???"}`}
+                            </a>
+                        );
+                    })}
+                </div>
+                <button
+                    onClick={() => (window.location.pathname = "/ranking")}
+                    style={{
+                        marginTop: "16px",
+                        padding: "8px 16px",
+                        backgroundColor: "#2ecc71",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        width: "100%",
+                    }}
+                >
+                    Rank Students
+                </button>
             </div>
             <div left2>
                 {selected_user
@@ -231,20 +235,21 @@ function App() {
                                                         seen: e.currentTarget.checked,
                                                     })}
                                             />
-                                            {doc.path
-                                                ? <a
-                                                    href={`/${doc.path}`}
+                                            {doc.paths.map((path, index) => (
+                                                <a
+                                                    href={`/${path}`}
                                                     target="_blank"
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        setSelectedDoc(doc.path);
+                                                        setSelectedDoc(path);
                                                     }}
                                                 >
-                                                    {doc_id}
+                                                    {index === 0 ? doc_id : `${doc_id}_${index}`}
                                                 </a>
-                                                : <span>{doc_id} (Not provided)</span>}
+                                            ))}
+                                            {doc.paths.length === 0 && <span>{doc_id} (Not provided)</span>}
                                         </div>
-                                        {doc.path && (
+                                        {doc.paths.length > 0 && (
                                             <textarea
                                                 value={doc.comment}
                                                 data-value={doc.comment}
@@ -283,4 +288,6 @@ function App() {
             </div>
         </div>
     );
-}React.render(<App />, document.querySelector("[preact]")!);
+}
+
+React.render(<App />, document.querySelector("[preact]")!);

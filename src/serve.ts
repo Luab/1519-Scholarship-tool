@@ -60,7 +60,6 @@ async function dbUserUpdate(user_id: string, f: (x: DbUser) => void) {
         docs: user.docs, // No need to stringify, as it's already an object
     });
 }
-
 async function loadCsvData() {
     const csvPath = join(__dirname, "../Form bc716d471a6747858a2b140c6c8e5589_all.csv");
     const csvData = await Deno.readTextFile(csvPath);
@@ -80,7 +79,13 @@ async function loadCsvData() {
 
     const records = results.data; // Parsed records
 
-    console.log("Parsed CSV records:", records); // Debugging: Log parsed records
+    console.log(`Total lines in CSV: ${records.length}`); // Debugging: Log total lines in CSV
+
+    let processedCount = 0;
+    let skippedCount = 0;
+    const skippedRecords: any[] = []; // To store records that were skipped
+    const duplicateUserIds = new Set<string>(); // To track duplicate user_ids
+    const storedUserIds = new Set<string>(); // To track user_ids stored in the database
 
     for (const record of records) {
         // Debugging: Log the entire record to see its structure
@@ -98,6 +103,23 @@ async function loadCsvData() {
 
         // Generate a unique user ID based on first and last names
         const user_id = `${firstName}_${lastName}`.toLowerCase().replace(/\s+/g, "_");
+
+        // Skip if the user_id is empty or invalid
+        if (!user_id || user_id === "_") {
+            console.warn(`Skipping record due to invalid user_id:`, record);
+            skippedCount++;
+            skippedRecords.push(record);
+            continue;
+        }
+
+        // Check for duplicate user_ids
+        if (storedUserIds.has(user_id)) {
+            console.warn(`Duplicate user_id detected: ${user_id}. Skipping record:`, record);
+            duplicateUserIds.add(user_id);
+            skippedCount++;
+            skippedRecords.push(record);
+            continue;
+        }
 
         // Ensure all fields are of supported types and handle missing/empty fields
         const user = {
@@ -117,9 +139,27 @@ async function loadCsvData() {
         // Debugging: Log the user object before storing it in the database
         console.log("User object to be stored:", user);
 
-        // Store the serialized user in Deno KV
-        await db.set(["user", user_id], user);
+        try {
+            // Store the serialized user in Deno KV
+            await db.set(["user", user_id], user);
+            storedUserIds.add(user_id); // Track stored user_ids
+            processedCount++;
+        } catch (error) {
+            console.error(`Error storing user ${user_id}:`, error);
+            skippedCount++;
+            skippedRecords.push(record);
+        }
     }
+
+    // Log summary of processing
+    console.log(`Total records processed: ${processedCount}`);
+    console.log(`Total records skipped: ${skippedCount}`);
+    console.log("Skipped records:", skippedRecords);
+    console.log("Duplicate user_ids:", Array.from(duplicateUserIds));
+
+    // Verify the number of students in the database after loading
+    const dbUsers = await dbUserList();
+    console.log(`Total students in DB after loading: ${dbUsers.size}`);
 }
 await loadCsvData();
 

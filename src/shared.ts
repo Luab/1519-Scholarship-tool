@@ -1,6 +1,7 @@
 export interface DbUserDoc {
     seen: boolean; // Whether the document has been reviewed
     comment: string; // Comment for the document
+    paths: string[]; // Array of file paths
 }
 
 export interface DbUser {
