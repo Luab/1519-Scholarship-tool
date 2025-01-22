@@ -66,6 +66,12 @@ self.addEventListener(
     e.preventDefault();
   },
 );
+function truncateFileName(fileName: string, maxLength: number): string {
+    if (fileName.length <= maxLength) {
+        return fileName;
+    }
+    return fileName.substring(0, maxLength) + "...";
+}
 function App() {
     const hash = useHash();
     let user_id: string = null!;
@@ -273,11 +279,10 @@ function App() {
             <div right>
                 {selectedDoc ? (
                     <>
-                        <div className="preview-header">
-                            <span>Preview: {selectedDoc.split("/").pop()}</span>
-                            <button onClick={() => setSelectedDoc(null)}>Close Preview</button>
-                        </div>
-                        <iframe
+<div className="preview-header">
+    <span>Preview: {truncateFileName(selectedDoc.split("/").pop() || "", 30)}</span>
+    <button onClick={() => setSelectedDoc(null)}>Close Preview</button>
+</div>                        <iframe
                             src={`/${selectedDoc}`}
                             style={{ width: "100%", height: "100%", border: "none" }}
                         />
